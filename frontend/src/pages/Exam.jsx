@@ -39,6 +39,8 @@ const Exam = () => {
             alert('Warning: No face detected in the camera frame. Please remain visible.');
         } else if (type === 'MULTIPLE_FACES') {
             alert('Warning: Multiple faces detected. You must be alone during the exam.');
+        } else if (type === 'MIC_NOISE') {
+            alert('Warning: Excessive background noise detected. Please ensure a quiet environment.');
         }
     }, [logEvent]);
 

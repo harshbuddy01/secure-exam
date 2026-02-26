@@ -65,6 +65,60 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
     };
 
     useEffect(() => {
+        if (previewOnly || !stream) return;
+
+        let audioContext;
+        let analyser;
+        let source;
+        let interval;
+
+        const setupAudio = async () => {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let noiseCount = 0;
+
+                interval = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Calculate simple average volume
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const average = sum / dataArray.length;
+
+                    // Threshold for "noise" - this might need tuning
+                    if (average > 40) {
+                        noiseCount++;
+                        if (noiseCount >= 3) { // ~3 seconds of continuous noise
+                            onProctorEvent && onProctorEvent('MIC_NOISE', { volume: Math.round(average) });
+                            noiseCount = 0; // Reset after logging to throttle
+                        }
+                    } else {
+                        noiseCount = 0;
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error("Audio detection error:", err);
+            }
+        };
+
+        setupAudio();
+
+        return () => {
+            if (interval) clearInterval(interval);
+            if (audioContext) audioContext.close();
+        };
+    }, [previewOnly, stream, onProctorEvent]);
+
+    useEffect(() => {
         let activeStream;
 
         const startCamera = async () => {
