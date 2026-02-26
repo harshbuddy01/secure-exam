@@ -1,69 +1,86 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import * as faceapi from 'face-api.js';
 
 const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false }) => {
     const videoRef = useRef(null);
-    const canvasRef = useRef(null);
     const [stream, setStream] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
     const [modelsLoaded, setModelsLoaded] = useState(false);
+    const [faceStatus, setFaceStatus] = useState('loading'); // 'loading' | 'ok' | 'no_face' | 'multiple'
+    const [micLevel, setMicLevel] = useState(0);
 
-    // Track continuous violations to avoid spamming the log
+    // Track continuous violations — fires EVERY TIME threshold is hit, not just once
     const violationCountRef = useRef({ NO_FACE: 0, MULTIPLE_FACES: 0 });
 
+    // Load face-api models
     useEffect(() => {
         const loadModels = async () => {
             try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
                 setModelsLoaded(true);
+                console.log('✅ Face-API models loaded');
             } catch (err) {
                 console.error("Failed to load face-api models", err);
+                setErrorMsg("AI Models failed to load. Proctoring unavailable.");
             }
         };
         loadModels();
     }, []);
 
+    // Face detection loop — AGGRESSIVE: checks every 1.5s, fires repeatedly
     useEffect(() => {
         if (previewOnly || !modelsLoaded || !videoRef.current) return;
 
         const interval = setInterval(async () => {
-            // Don't detect if video is basically not ready/playing
             if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
 
-            const detections = await faceapi.detectAllFaces(
-                videoRef.current,
-                new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-            );
+            try {
+                const detections = await faceapi.detectAllFaces(
+                    videoRef.current,
+                    new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 })
+                );
 
-            const faceCount = detections.length;
+                const faceCount = detections.length;
 
-            if (faceCount === 0) {
-                violationCountRef.current.NO_FACE++;
-                if (violationCountRef.current.NO_FACE === 3) {
-                    onProctorEvent && onProctorEvent('NO_FACE');
+                if (faceCount === 0) {
+                    violationCountRef.current.NO_FACE++;
+                    violationCountRef.current.MULTIPLE_FACES = 0;
+                    setFaceStatus('no_face');
+
+                    // Fire every 2 consecutive misses (every ~3 seconds of no face)
+                    if (violationCountRef.current.NO_FACE % 2 === 0) {
+                        onProctorEvent && onProctorEvent('NO_FACE', {
+                            consecutiveCount: violationCountRef.current.NO_FACE
+                        });
+                    }
+                } else if (faceCount > 1) {
+                    violationCountRef.current.MULTIPLE_FACES++;
+                    violationCountRef.current.NO_FACE = 0;
+                    setFaceStatus('multiple');
+
+                    // Fire immediately and then every 2nd detection
+                    if (violationCountRef.current.MULTIPLE_FACES === 1 ||
+                        violationCountRef.current.MULTIPLE_FACES % 2 === 0) {
+                        onProctorEvent && onProctorEvent('MULTIPLE_FACES', {
+                            count: faceCount,
+                            consecutiveCount: violationCountRef.current.MULTIPLE_FACES
+                        });
+                    }
+                } else {
+                    // Exactly 1 face — all good
+                    violationCountRef.current.NO_FACE = 0;
+                    violationCountRef.current.MULTIPLE_FACES = 0;
+                    setFaceStatus('ok');
                 }
-            } else {
-                violationCountRef.current.NO_FACE = 0;
+            } catch (err) {
+                console.error("Face detection error:", err);
             }
-
-            if (faceCount > 1) {
-                violationCountRef.current.MULTIPLE_FACES++;
-                if (violationCountRef.current.MULTIPLE_FACES === 2) {
-                    onProctorEvent && onProctorEvent('MULTIPLE_FACES', { count: faceCount });
-                }
-            } else {
-                violationCountRef.current.MULTIPLE_FACES = 0;
-            }
-
-        }, 2000); // Check every 2 seconds to reduce CPU and fix performance issue
+        }, 1500); // Check every 1.5 seconds
 
         return () => clearInterval(interval);
     }, [modelsLoaded, previewOnly, onProctorEvent]);
 
-    const handleVideoPlay = () => {
-        // Left empty if we don't need this hook anymore since the useEffect handles the timer
-    };
-
+    // Mic noise detection — LOWER threshold, fires more aggressively
     useEffect(() => {
         if (previewOnly || !stream) return;
 
@@ -86,25 +103,27 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
                 interval = setInterval(() => {
                     analyser.getByteFrequencyData(dataArray);
 
-                    // Calculate simple average volume
                     let sum = 0;
                     for (let i = 0; i < dataArray.length; i++) {
                         sum += dataArray[i];
                     }
                     const average = sum / dataArray.length;
+                    setMicLevel(Math.round(average));
 
-                    // Threshold for "noise" - this might need tuning
-                    if (average > 40) {
+                    // Lower threshold — normal speech is ~15-30
+                    if (average > 15) {
                         noiseCount++;
-                        if (noiseCount >= 3) { // ~3 seconds of continuous noise
-                            onProctorEvent && onProctorEvent('MIC_NOISE', { volume: Math.round(average) });
-                            noiseCount = 0; // Reset after logging to throttle
+                        // Fire after 2 consecutive seconds of noise, then every 3 seconds
+                        if (noiseCount === 2 || (noiseCount > 2 && noiseCount % 3 === 0)) {
+                            onProctorEvent && onProctorEvent('MIC_NOISE', {
+                                volume: Math.round(average),
+                                duration: noiseCount
+                            });
                         }
                     } else {
                         noiseCount = 0;
                     }
                 }, 1000);
-
             } catch (err) {
                 console.error("Audio detection error:", err);
             }
@@ -118,12 +137,16 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
         };
     }, [previewOnly, stream, onProctorEvent]);
 
+    // Start camera + mic
     useEffect(() => {
         let activeStream;
 
         const startCamera = async () => {
             try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: !previewOnly });
+                const mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: !previewOnly
+                });
                 setStream(mediaStream);
                 activeStream = mediaStream;
 
@@ -151,29 +174,95 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
     }, [previewOnly, modelsLoaded, onReady, onError]);
 
     if (errorMsg) {
-        return <div style={{ color: 'var(--danger)', padding: '1rem', textAlign: 'center' }}>{errorMsg}</div>;
+        return <div style={{ color: '#ff4444', padding: '1rem', textAlign: 'center' }}>{errorMsg}</div>;
     }
 
+    // Status indicator color
+    const statusColor = faceStatus === 'ok' ? '#00e676' :
+        faceStatus === 'no_face' ? '#ff1744' :
+            faceStatus === 'multiple' ? '#ff9100' :
+                '#ffd740';
+
+    const statusText = faceStatus === 'ok' ? '✓ Face Detected' :
+        faceStatus === 'no_face' ? '✗ NO FACE DETECTED' :
+            faceStatus === 'multiple' ? '⚠ MULTIPLE FACES' :
+                '◌ Loading AI...';
+
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {!modelsLoaded && !previewOnly && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: 'white', zIndex: 2 }}>
-                    Loading AI Models...
+        <div style={{ position: 'relative', width: '100%' }}>
+            {/* AI Status Bar */}
+            <div style={{
+                backgroundColor: statusColor,
+                color: faceStatus === 'ok' ? '#000' : '#fff',
+                padding: '6px 12px',
+                fontWeight: 'bold',
+                fontSize: '13px',
+                textAlign: 'center',
+                letterSpacing: '0.5px',
+                animation: faceStatus !== 'ok' && faceStatus !== 'loading' ? 'pulse-bg 1s infinite' : 'none'
+            }}>
+                {statusText}
+            </div>
+
+            {/* Webcam Feed */}
+            <div style={{ position: 'relative' }}>
+                {!modelsLoaded && !previewOnly && (
+                    <div style={{
+                        position: 'absolute', inset: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: '#000', color: 'white', zIndex: 2
+                    }}>
+                        Loading AI Models...
+                    </div>
+                )}
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{
+                        width: '100%',
+                        height: '180px',
+                        objectFit: 'cover',
+                        transform: 'scaleX(-1)',
+                        border: `3px solid ${statusColor}`
+                    }}
+                />
+            </div>
+
+            {/* Mic Level Indicator */}
+            {!previewOnly && (
+                <div style={{ padding: '6px 12px', backgroundColor: '#1a1a2e' }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        fontSize: '12px', color: '#aaa'
+                    }}>
+                        <span>🎤</span>
+                        <div style={{
+                            flex: 1, height: '6px', backgroundColor: '#333',
+                            borderRadius: '3px', overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${Math.min(micLevel * 3, 100)}%`,
+                                backgroundColor: micLevel > 15 ? '#ff1744' : '#00e676',
+                                transition: 'width 0.3s, background-color 0.3s'
+                            }} />
+                        </div>
+                        <span style={{ color: micLevel > 15 ? '#ff1744' : '#888', fontWeight: micLevel > 15 ? 'bold' : 'normal' }}>
+                            {micLevel > 15 ? 'NOISE!' : 'Quiet'}
+                        </span>
+                    </div>
                 </div>
             )}
-            <video
-                ref={videoRef}
-                onPlay={handleVideoPlay}
-                autoPlay
-                playsInline
-                muted
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transform: 'scaleX(-1)'
-                }}
-            />
+
+            {/* CSS Animation */}
+            <style>{`
+                @keyframes pulse-bg {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.6; }
+                }
+            `}</style>
         </div>
     );
 };

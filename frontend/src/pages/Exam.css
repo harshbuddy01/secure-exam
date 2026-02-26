@@ -2,8 +2,162 @@
     display: flex;
     min-height: 100vh;
     background-color: var(--bg-dark);
+    position: relative;
 }
 
+/* === WARNING BANNER (full-width top) === */
+.warning-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    padding: 14px 20px;
+    animation: slideDown 0.3s ease, pulse-warning 1s infinite;
+}
+
+.warning-banner.warning {
+    background: linear-gradient(135deg, #ff9100, #ff6d00);
+    color: #000;
+}
+
+.warning-banner.danger {
+    background: linear-gradient(135deg, #ff1744, #d50000);
+    color: #fff;
+}
+
+.warning-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.warning-icon {
+    font-size: 1.5rem;
+}
+
+.warning-text {
+    flex: 1;
+    text-align: center;
+}
+
+.warning-badge {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse-warning {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
+/* === VIOLATION COUNTER (header) === */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.violation-counter {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.violation-counter.warning {
+    background: rgba(255, 152, 0, 0.25);
+    color: #ff6d00;
+    border-color: rgba(255, 152, 0, 0.5);
+}
+
+.violation-counter.critical {
+    background: rgba(255, 23, 68, 0.2);
+    color: #ff1744;
+    border-color: rgba(255, 23, 68, 0.4);
+    animation: pulse 2s infinite;
+}
+
+/* === VIOLATIONS LOG === */
+.violations-log {
+    margin-top: 1rem;
+    background: rgba(255, 23, 68, 0.05);
+    border: 1px solid rgba(255, 23, 68, 0.15);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.violations-log h4 {
+    font-size: 0.8rem;
+    color: #ff8a80;
+    margin-bottom: 8px;
+}
+
+.violations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.violation-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.violation-entry.danger {
+    border-left: 3px solid #ff1744;
+}
+
+.violation-entry.warning {
+    border-left: 3px solid #ff9100;
+}
+
+.v-time {
+    color: #888;
+    font-variant-numeric: tabular-nums;
+}
+
+.v-type {
+    color: #ff8a80;
+    font-weight: 600;
+}
+
+/* === EXISTING STYLES === */
 .questions-panel {
     flex: 1;
     padding: 2rem;
@@ -102,11 +256,10 @@
 .webcam-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 4/3;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -138,7 +291,7 @@
 }
 
 .panel-actions {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
 }
 
 .progress-text {
@@ -214,6 +367,5 @@
 
     .questions-panel {
         padding-bottom: 120px;
-        /* space for bottom nav */
     }
 }
