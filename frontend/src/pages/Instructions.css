@@ -1,0 +1,62 @@
+.instructions-container {
+    display: flex;
+    justify-content: center;
+    padding-top: 4rem;
+}
+
+.instructions-card {
+    max-width: 800px;
+    width: 100%;
+}
+
+.rules-section {
+    background-color: rgba(99, 102, 241, 0.05);
+    border-left: 4px solid var(--primary);
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 4px 8px 8px 4px;
+}
+
+.rules-section ul {
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+}
+
+.rules-section li {
+    margin-bottom: 0.5rem;
+}
+
+.setup-section {
+    margin: 2rem 0;
+}
+
+.webcam-preview {
+    margin-top: 1rem;
+    width: 100%;
+    max-width: 400px;
+    height: 300px;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-section {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.exam-input {
+    flex: 1;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

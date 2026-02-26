@@ -1,0 +1,8 @@
+[
+    {
+        "id": "exam-101",
+        "title": "Computer Science 101 Midterm",
+        "durationMinutes": 60,
+        "totalMarks": 100
+    }
+]

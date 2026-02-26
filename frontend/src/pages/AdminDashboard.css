@@ -1,0 +1,58 @@
+.admin-container {
+    padding-top: 3rem;
+}
+
+.admin-header {
+    margin-bottom: 2rem;
+}
+
+.admin-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.list-card {
+    overflow-x: auto;
+}
+
+.attempts-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.attempts-table th,
+.attempts-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.attempts-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.risk-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.risk-badge.safe {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: var(--success);
+}
+
+.risk-badge.high_risk {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+.risk-badge.suspicious {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+}

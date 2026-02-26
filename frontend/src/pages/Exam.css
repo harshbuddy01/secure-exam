@@ -1,0 +1,219 @@
+.exam-layout {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--bg-dark);
+}
+
+.questions-panel {
+    flex: 1;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.exam-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.timer-badge {
+    background-color: var(--primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.question-card {
+    margin-bottom: 2rem;
+}
+
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.marks-badge {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.question-text {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.option-label {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: rgba(30, 41, 59, 0.5);
+}
+
+.option-label:hover {
+    border-color: var(--primary);
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.option-label.selected {
+    border-color: var(--primary);
+    background-color: rgba(99, 102, 241, 0.1);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.option-text {
+    margin-left: 1rem;
+}
+
+.proctor-panel {
+    width: 320px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-card);
+    padding: 1.5rem;
+}
+
+.proctor-sticky {
+    position: sticky;
+    top: 1.5rem;
+}
+
+.webcam-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.proctor-status {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    backdrop-filter: blur(4px);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--danger);
+}
+
+.status-dot.recording {
+    animation: pulse 2s infinite;
+}
+
+.panel-actions {
+    margin-top: 1.5rem;
+}
+
+.progress-text {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.submit-btn {
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 1024px) {
+    .exam-layout {
+        flex-direction: column;
+    }
+
+    .proctor-panel {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+    }
+
+    .proctor-sticky {
+        position: static;
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .webcam-container {
+        width: 120px;
+        margin-bottom: 0;
+    }
+
+    .panel-actions {
+        margin-top: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .progress-text {
+        margin-bottom: 0;
+    }
+
+    .questions-panel {
+        padding-bottom: 120px;
+        /* space for bottom nav */
+    }
+}
