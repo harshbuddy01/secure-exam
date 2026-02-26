@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import WebcamWidget from '../components/WebcamWidget';
@@ -15,6 +15,12 @@ const Exam = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
+    // Proctoring state — persistent warnings
+    const [violations, setViolations] = useState([]);
+    const [violationCount, setViolationCount] = useState(0);
+    const [activeWarning, setActiveWarning] = useState(null);
+    const warningTimeoutRef = useRef(null);
+
     useEffect(() => {
         const fetchExam = async () => {
             try {
@@ -25,7 +31,6 @@ const Exam = () => {
                 setLoading(false);
             } catch (err) {
                 console.error("Failed to load exam", err);
-                // Fallback or error handling
             }
         };
         fetchExam();
@@ -35,20 +40,49 @@ const Exam = () => {
 
     const handleWebcamProctorEvent = useCallback((type, meta) => {
         logEvent(type, meta);
+
+        setViolationCount(prev => prev + 1);
+
+        // Build warning message
+        let message = '';
+        let severity = 'warning'; // 'warning' | 'danger'
+
         if (type === 'NO_FACE') {
-            alert('Warning: No face detected in the camera frame. Please remain visible.');
+            message = '🚫 NO FACE DETECTED — Look at the camera now!';
+            severity = 'danger';
         } else if (type === 'MULTIPLE_FACES') {
-            alert('Warning: Multiple faces detected. You must be alone during the exam.');
+            message = `👥 MULTIPLE FACES DETECTED (${meta?.count || 2}) — You must be ALONE!`;
+            severity = 'danger';
         } else if (type === 'MIC_NOISE') {
-            alert('Warning: Excessive background noise detected. Please ensure a quiet environment.');
+            message = `🔊 TALKING/NOISE DETECTED (Level: ${meta?.volume || '?'}) — Stay SILENT!`;
+            severity = 'warning';
         }
+
+        // Add to violations log
+        const violation = {
+            id: Date.now(),
+            type,
+            message,
+            severity,
+            time: new Date().toLocaleTimeString()
+        };
+        setViolations(prev => [violation, ...prev].slice(0, 20));
+
+        // Show persistent warning banner
+        setActiveWarning({ message, severity });
+
+        // Clear warning after 4 seconds (but it will re-trigger if violation continues)
+        if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+        warningTimeoutRef.current = setTimeout(() => {
+            setActiveWarning(null);
+        }, 4000);
+
     }, [logEvent]);
 
     const submitExam = useCallback(async (isAuto = false) => {
         if (submitting) return;
         setSubmitting(true);
 
-        // Format answers for API: [{ questionId, selectedIndex }]
         const formattedAnswers = Object.keys(answers).map(qId => ({
             questionId: qId,
             selectedIndex: answers[qId]
@@ -59,7 +93,6 @@ const Exam = () => {
                 examId,
                 answers: formattedAnswers
             });
-            // Redirect to success or dashboard
             navigate('/', { replace: true, state: { message: 'Exam submitted successfully' } });
         } catch (err) {
             console.error("Submission failed", err);
@@ -72,24 +105,15 @@ const Exam = () => {
     useEffect(() => {
         if (timeLeft === null) return;
         if (timeLeft <= 0) {
-            if (!submitting) {
-                submitExam(true);
-            }
+            if (!submitting) submitExam(true);
             return;
         }
-
-        const timer = setInterval(() => {
-            setTimeLeft(prev => prev - 1);
-        }, 1000);
-
+        const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
         return () => clearInterval(timer);
     }, [timeLeft, submitExam, submitting]);
 
     const handleOptionSelect = (qId, index) => {
-        setAnswers(prev => ({
-            ...prev,
-            [qId]: index
-        }));
+        setAnswers(prev => ({ ...prev, [qId]: index }));
     };
 
     const formatTime = (seconds) => {
@@ -102,12 +126,30 @@ const Exam = () => {
 
     return (
         <div className="exam-layout">
+            {/* === FULL-SCREEN WARNING BANNER === */}
+            {activeWarning && (
+                <div className={`warning-banner ${activeWarning.severity}`}>
+                    <div className="warning-content">
+                        <span className="warning-icon">⚠️</span>
+                        <span className="warning-text">{activeWarning.message}</span>
+                        <span className="warning-badge">Violation #{violationCount}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Left panel: Questions */}
             <div className="questions-panel">
                 <header className="exam-header">
                     <h2>{examState.title}</h2>
-                    <div className="timer-badge">
-                        Time Left: {formatTime(timeLeft)}
+                    <div className="header-right">
+                        {violationCount > 0 && (
+                            <div className={`violation-counter ${violationCount >= 5 ? 'critical' : violationCount >= 3 ? 'warning' : ''}`}>
+                                ⚠ {violationCount} Violation{violationCount !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                        <div className="timer-badge">
+                            ⏱ {formatTime(timeLeft)}
+                        </div>
                     </div>
                 </header>
 
@@ -119,7 +161,6 @@ const Exam = () => {
                                 <span className="marks-badge">{q.marks} Marks</span>
                             </div>
                             <p className="question-text">{q.text}</p>
-
                             <div className="options-container">
                                 {q.options.map((opt, optIndex) => (
                                     <label key={optIndex} className={`option-label ${answers[q._id] === optIndex ? 'selected' : ''}`}>
@@ -143,10 +184,25 @@ const Exam = () => {
                 <div className="proctor-sticky">
                     <div className="webcam-container">
                         <div className="proctor-status">
-                            <span className="status-dot recording"></span> Recording
+                            <span className="status-dot recording"></span> AI Monitoring Active
                         </div>
                         <WebcamWidget onProctorEvent={handleWebcamProctorEvent} />
                     </div>
+
+                    {/* Live Violations Log */}
+                    {violations.length > 0 && (
+                        <div className="violations-log">
+                            <h4>📋 Detected Violations ({violationCount})</h4>
+                            <div className="violations-list">
+                                {violations.slice(0, 5).map(v => (
+                                    <div key={v.id} className={`violation-entry ${v.severity}`}>
+                                        <span className="v-time">{v.time}</span>
+                                        <span className="v-type">{v.type}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="panel-actions">
                         <p className="progress-text">
@@ -155,7 +211,7 @@ const Exam = () => {
                         <button
                             className="primary full-width submit-btn"
                             onClick={() => {
-                                if (window.confirm('Are you sure you want to completely finish and submit the exam?')) {
+                                if (window.confirm('Are you sure you want to submit the exam?')) {
                                     submitExam();
                                 }
                             }}

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-const THROTTLE_MS = 5000; // 5 seconds between identical event types
+const THROTTLE_MS = 3000; // 3 seconds between identical event types
 
 const useProctoring = (examId, isExamActive) => {
     const lastLoggedRef = useRef({});
