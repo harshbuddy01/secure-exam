@@ -20,7 +20,7 @@ const useProctoring = (examId, isExamActive) => {
         lastLoggedRef.current[eventType] = now;
 
         try {
-            await axios.post('http://localhost:5000/api/proctor/log', {
+            await axios.post('http://localhost:5001/api/proctor/log', {
                 examId,
                 eventType,
                 metadata

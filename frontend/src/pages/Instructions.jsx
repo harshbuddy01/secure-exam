@@ -32,7 +32,7 @@ const Instructions = () => {
 
         try {
             // 1. Initialize submission to get active attempt
-            await axios.post('http://localhost:5000/api/submission/start', { examId: selectedExam });
+            await axios.post('http://localhost:5001/api/submission/start', { examId: selectedExam });
             navigate(`/exam/${selectedExam}`);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to start exam');

@@ -18,7 +18,7 @@ const Exam = () => {
     useEffect(() => {
         const fetchExam = async () => {
             try {
-                const response = await axios.get(`http://localhost:5000/api/exam/${examId}`);
+                const response = await axios.get(`http://localhost:5001/api/exam/${examId}`);
                 setExamState(response.data.exam);
                 setQuestions(response.data.questions);
                 setTimeLeft(response.data.exam.durationMinutes * 60);
@@ -55,7 +55,7 @@ const Exam = () => {
         }));
 
         try {
-            await axios.post('http://localhost:5000/api/submission', {
+            await axios.post('http://localhost:5001/api/submission', {
                 examId,
                 answers: formattedAnswers
             });
