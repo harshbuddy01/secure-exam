@@ -23,7 +23,8 @@ const useProctoring = (examId, isExamActive) => {
             await axios.post('http://localhost:5001/api/proctor/log', {
                 examId,
                 eventType,
-                metadata
+                metadata,
+                evidenceImage: metadata.evidenceImage || null
             });
             console.warn(`Proctor Event Logged: ${eventType}`);
         } catch (err) {
