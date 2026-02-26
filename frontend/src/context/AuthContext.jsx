@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     // Set axios default header so requests succeed
                     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-                    const response = await axios.get('http://localhost:5000/api/auth/me');
+                    const response = await axios.get('http://localhost:5001/api/auth/me');
                     setUser({ _id: response.data._id, role: response.data.role });
                 } catch (err) {
                     console.error("Token verification failed", err);
