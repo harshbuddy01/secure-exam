@@ -41,7 +41,7 @@ npm install
 Create a `.env` file in the `backend/` directory:
 ```env
 PORT=5000
-MONGODB_URI=your_mongodb_connection_string
+MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_super_secret_key
 ```
 Start the backend:
