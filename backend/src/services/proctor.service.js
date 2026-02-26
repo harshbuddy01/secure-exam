@@ -36,7 +36,8 @@ export const logProctorEvent = async (userId, body) => {
         examId,
         attemptId: submission._id,
         eventType,
-        metadata
+        metadata,
+        evidenceImage: body.evidenceImage
     });
 
     return log;

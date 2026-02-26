@@ -9,8 +9,24 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
     const [faceStatus, setFaceStatus] = useState('loading'); // 'loading' | 'ok' | 'no_face' | 'multiple'
     const [micLevel, setMicLevel] = useState(0);
 
-    // Track continuous violations — fires EVERY TIME threshold is hit, not just once
-    const violationCountRef = useRef({ NO_FACE: 0, MULTIPLE_FACES: 0 });
+    // Track continuous violations
+    const violationCountRef = useRef({ MISSING_FACE: 0, MULTIPLE_FACES: 0 });
+
+    // Snapshot helper
+    const captureSnapshot = useCallback(() => {
+        if (!videoRef.current || !videoRef.current.readyState === 4) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const ctx = canvas.getContext('2d');
+        // Mirror for consistency with preview
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+        return canvas.toDataURL('image/jpeg', 0.6); // 60% quality jpeg to save DB space
+    }, []);
 
     // Load face-api models
     useEffect(() => {
@@ -27,7 +43,7 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
         loadModels();
     }, []);
 
-    // Face detection loop — AGGRESSIVE: checks every 1.5s, fires repeatedly
+    // Face detection loop — REFINED with grace periods
     useEffect(() => {
         if (previewOnly || !modelsLoaded || !videoRef.current) return;
 
@@ -43,42 +59,54 @@ const WebcamWidget = ({ onReady, onError, onProctorEvent, previewOnly = false })
                 const faceCount = detections.length;
 
                 if (faceCount === 0) {
-                    violationCountRef.current.NO_FACE++;
+                    violationCountRef.current.MISSING_FACE++;
                     violationCountRef.current.MULTIPLE_FACES = 0;
-                    setFaceStatus('no_face');
 
-                    // Fire every 2 consecutive misses (every ~3 seconds of no face)
-                    if (violationCountRef.current.NO_FACE % 2 === 0) {
+                    // Logic:
+                    // 1 detection (~1.5s): LOOK_AWAY (Orange)
+                    // 3+ detections (~4.5s): NO_FACE (Red)
+                    if (violationCountRef.current.MISSING_FACE === 1) {
+                        setFaceStatus('no_face'); // Immediate visual change
+                        onProctorEvent && onProctorEvent('LOOK_AWAY', {
+                            consecutiveCount: violationCountRef.current.MISSING_FACE
+                        });
+                    } else if (violationCountRef.current.MISSING_FACE >= 3) {
+                        setFaceStatus('no_face');
+                        // Capture evidence on hard violation
+                        const evidenceImage = captureSnapshot();
                         onProctorEvent && onProctorEvent('NO_FACE', {
-                            consecutiveCount: violationCountRef.current.NO_FACE
+                            consecutiveCount: violationCountRef.current.MISSING_FACE,
+                            evidenceImage
                         });
                     }
                 } else if (faceCount > 1) {
                     violationCountRef.current.MULTIPLE_FACES++;
-                    violationCountRef.current.NO_FACE = 0;
+                    violationCountRef.current.MISSING_FACE = 0;
                     setFaceStatus('multiple');
 
-                    // Fire immediately and then every 2nd detection
-                    if (violationCountRef.current.MULTIPLE_FACES === 1 ||
-                        violationCountRef.current.MULTIPLE_FACES % 2 === 0) {
+                    // Fire immediately and capture evidence
+                    if (violationCountRef.current.MULTIPLE_FACES === 1) {
+                        const evidenceImage = captureSnapshot();
                         onProctorEvent && onProctorEvent('MULTIPLE_FACES', {
                             count: faceCount,
-                            consecutiveCount: violationCountRef.current.MULTIPLE_FACES
+                            evidenceImage
                         });
+                    } else if (violationCountRef.current.MULTIPLE_FACES % 3 === 0) {
+                        onProctorEvent && onProctorEvent('MULTIPLE_FACES', { count: faceCount });
                     }
                 } else {
                     // Exactly 1 face — all good
-                    violationCountRef.current.NO_FACE = 0;
+                    violationCountRef.current.MISSING_FACE = 0;
                     violationCountRef.current.MULTIPLE_FACES = 0;
                     setFaceStatus('ok');
                 }
             } catch (err) {
                 console.error("Face detection error:", err);
             }
-        }, 1500); // Check every 1.5 seconds
+        }, 1500);
 
         return () => clearInterval(interval);
-    }, [modelsLoaded, previewOnly, onProctorEvent]);
+    }, [modelsLoaded, previewOnly, onProctorEvent, captureSnapshot]);
 
     // Mic noise detection — LOWER threshold, fires more aggressively
     useEffect(() => {

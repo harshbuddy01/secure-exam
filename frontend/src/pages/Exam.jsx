@@ -47,7 +47,10 @@ const Exam = () => {
         let message = '';
         let severity = 'warning'; // 'warning' | 'danger'
 
-        if (type === 'NO_FACE') {
+        if (type === 'LOOK_AWAY') {
+            message = '👀 Looking away? Please stay focused on the screen.';
+            severity = 'warning';
+        } else if (type === 'NO_FACE') {
             message = '🚫 NO FACE DETECTED — Look at the camera now!';
             severity = 'danger';
         } else if (type === 'MULTIPLE_FACES') {
@@ -58,13 +61,16 @@ const Exam = () => {
             severity = 'warning';
         }
 
+        const hasEvidence = !!meta?.evidenceImage;
+
         // Add to violations log
         const violation = {
             id: Date.now(),
             type,
             message,
             severity,
-            time: new Date().toLocaleTimeString()
+            time: new Date().toLocaleTimeString(),
+            hasEvidence
         };
         setViolations(prev => [violation, ...prev].slice(0, 20));
 
@@ -197,7 +203,7 @@ const Exam = () => {
                                 {violations.slice(0, 5).map(v => (
                                     <div key={v.id} className={`violation-entry ${v.severity}`}>
                                         <span className="v-time">{v.time}</span>
-                                        <span className="v-type">{v.type}</span>
+                                        <span className="v-type">{v.type} {v.hasEvidence && '📸'}</span>
                                     </div>
                                 ))}
                             </div>
